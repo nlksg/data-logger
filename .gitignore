@@ -1,0 +1,60 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+modbus_env/
+
+# Packaging / distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Type checker / linter caches
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# IDE / editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Local machine/home environment directories
+.cache/
+.codex/
+.config/
+.copilot/
+.dotnet/
+.local/
+.vscode-server/
+
+# Home directory dotfiles/state
+.bash_history
+.bash_logout
+.bashrc
+.profile
+.lesshst
+.sudo_as_admin_successful
+.wget-hsts
+.cloud-locale-test.skip
