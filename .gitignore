@@ -62,3 +62,7 @@ Thumbs.db
 # local secrets
 .ssh/
 .gitconfig
+
+# local secrets
+.ssh/
+.gitconfig
