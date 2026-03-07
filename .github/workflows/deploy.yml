@@ -43,6 +43,7 @@ jobs:
 
             python manage.py migrate --noinput
             python manage.py check
+            python manage.py collectstatic --noinput
 
             sudo systemctl restart iot-backend
             sudo systemctl is-active --quiet iot-backend
