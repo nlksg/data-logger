@@ -1,0 +1,46 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "iot-backend/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to GCE VM over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GCE_HOST }}
+          username: ${{ secrets.GCE_USER }}
+          key: ${{ secrets.GCE_SSH_KEY }}
+          port: ${{ secrets.GCE_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            cd ~/iot-backend
+            git pull --ff-only origin main
+
+            source .venv/bin/activate
+            pip install -r iot-backend/requirements.txt
+
+            cd iot-backend
+            set -a
+            source .env
+            set +a
+
+            python manage.py migrate --noinput
+            python manage.py check
+
+            sudo systemctl restart iot-backend
+            sudo systemctl is-active --quiet iot-backend
