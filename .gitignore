@@ -58,3 +58,7 @@ Thumbs.db
 .sudo_as_admin_successful
 .wget-hsts
 .cloud-locale-test.skip
+
+# local secrets
+.ssh/
+.gitconfig
