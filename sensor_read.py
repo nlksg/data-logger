@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 PORT = "/dev/ttySC0"
 BAUDRATE = 9600
 DEVICE_ID = 1
-API_URL = os.getenv("IOT_API_URL", "http://127.0.0.1:8000/api/v1/readings/")
-API_TOKEN = os.getenv("IOT_API_TOKEN", "")
+API_URL = os.getenv("IOT_API_URL", "https://iot.myanmarapps.com/api/v1/readings/")
+API_TOKEN = os.getenv("IOT_API_TOKEN", "fee259fe83bb0d58eae2fc90f11af9e7")
 POLL_SECONDS = float(os.getenv("POLL_SECONDS", "2"))
+DEBUG = os.getenv("DEBUG", "false").lower() in ("1", "true", "yes", "on")
 
 client = ModbusSerialClient(
     port=PORT,
@@ -28,7 +29,12 @@ if not client.connect():
 print("Connected to sensor")
 
 
-def send_reading(humidity: float, temperature: float) -> None:
+def debug_log(message: str) -> None:
+    if DEBUG:
+        print(f"[DEBUG] {message}")
+
+
+def send_reading(humidity: float, temperature: float) -> requests.Response:
     payload = {
         "device_id": str(DEVICE_ID),
         "humidity": humidity,
@@ -39,8 +45,10 @@ def send_reading(humidity: float, temperature: float) -> None:
     if API_TOKEN:
         headers["X-API-Token"] = API_TOKEN
 
+    debug_log(f"POST {API_URL} payload={payload}")
     response = requests.post(API_URL, json=payload, headers=headers, timeout=10)
     response.raise_for_status()
+    return response
 
 try:
     while True:
@@ -67,10 +75,10 @@ try:
             print(f"Humidity: {humidity:.1f} %RH")
             print(f"Temperature: {temperature:.1f} °C")
             try:
-                send_reading(humidity, temperature)
-                print("Sent reading to backend")
+                response = send_reading(humidity, temperature)
+                debug_log(f"API success status={response.status_code} body={response.text}")
             except Exception as send_error:
-                print(f"Send failed: {send_error}")
+                debug_log(f"API failed error={send_error}")
             print("-----")
 
         time.sleep(POLL_SECONDS)
