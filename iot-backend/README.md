@@ -57,3 +57,5 @@ After push:
 1. Open GitHub repo -> Actions tab.
 2. Confirm `CI` workflow ran successfully on `main`.
 3. For pull requests, the same checks run automatically.
+
+## Force deploy
