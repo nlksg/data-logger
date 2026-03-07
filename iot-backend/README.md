@@ -58,4 +58,4 @@ After push:
 2. Confirm `CI` workflow ran successfully on `main`.
 3. For pull requests, the same checks run automatically.
 
-## Forced Deployment
+## Force deployment
