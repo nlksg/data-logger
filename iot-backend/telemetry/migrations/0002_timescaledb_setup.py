@@ -12,7 +12,7 @@ BEGIN
     BEGIN
         CREATE EXTENSION IF NOT EXISTS timescaledb;
     EXCEPTION
-        WHEN undefined_file OR insufficient_privilege THEN
+        WHEN undefined_file OR insufficient_privilege OR feature_not_supported THEN
             RAISE NOTICE 'TimescaleDB extension is unavailable or not permitted; skipping hypertable setup.';
             RETURN;
     END;
