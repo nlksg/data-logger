@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timezone as dt_timezone
 
 from django.http import HttpRequest, JsonResponse
+from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -30,6 +31,32 @@ def _parse_iso_datetime(value: str | None):
 @require_http_methods(["GET"])
 def health(request: HttpRequest) -> JsonResponse:
     return JsonResponse({"status": "ok"})
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def list_readings(request: HttpRequest) -> JsonResponse:
+    readings = SensorReading.objects.all().order_by("-created_at")[:200]
+    data = [
+        {
+            "id": reading.id,
+            "device_id": reading.device_id,
+            "humidity": float(reading.humidity),
+            "temperature": float(reading.temperature),
+            "timestamp": (
+                reading.sensor_timestamp or reading.created_at
+            ).isoformat(),
+            "created_at": reading.created_at.isoformat(),
+        }
+        for reading in readings
+    ]
+    data.reverse()
+    return JsonResponse({"readings": data})
+
+
+@require_http_methods(["GET"])
+def dashboard(request: HttpRequest):
+    return render(request, "telemetry/dashboard.html")
 
 
 @csrf_exempt

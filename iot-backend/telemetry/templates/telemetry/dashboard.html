@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>IoT Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #182230;
+      --muted: #4a5565;
+      --temp: #e4572e;
+      --humid: #1f78b4;
+      --grid: rgba(24, 34, 48, 0.08);
+      --border: rgba(24, 34, 48, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at top right, #e6f3ff 0%, var(--bg) 48%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      width: min(1000px, 94%);
+      margin: 2rem auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(24, 34, 48, 0.06);
+      overflow: hidden;
+    }
+
+    .header {
+      padding: 1.2rem 1.4rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .meta {
+      margin: 0.2rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: #fff;
+      border-radius: 10px;
+      padding: 0.5rem 0.8rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .chart-area {
+      padding: 1rem;
+      height: 440px;
+    }
+
+    .status {
+      padding: 0 1rem 1rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .chart-area {
+        height: 360px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="header">
+      <div>
+        <h1 class="title">Sensor Readings Dashboard</h1>
+        <p class="meta">Time zone display: Asia/Yangon</p>
+      </div>
+      <button id="refreshBtn" class="btn" type="button">Refresh</button>
+    </section>
+
+    <section class="chart-area">
+      <canvas id="sensorChart"></canvas>
+    </section>
+
+    <p id="statusText" class="status">Loading data...</p>
+  </main>
+
+  <script>
+    const chartElement = document.getElementById('sensorChart');
+    const statusText = document.getElementById('statusText');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    let sensorChart;
+
+    function formatTime(isoTime) {
+      return new Date(isoTime).toLocaleString('en-US', {
+        timeZone: 'Asia/Yangon',
+        year: 'numeric',
+        month: 'short',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+
+    function createOrUpdateChart(readings) {
+      const labels = readings.map((item) => formatTime(item.timestamp));
+      const temperatureData = readings.map((item) => item.temperature);
+      const humidityData = readings.map((item) => item.humidity);
+
+      const chartData = {
+        labels,
+        datasets: [
+          {
+            label: 'Temperature (C)',
+            data: temperatureData,
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--temp').trim(),
+            backgroundColor: 'rgba(228, 87, 46, 0.15)',
+            borderWidth: 2,
+            tension: 0.25,
+            pointRadius: 2,
+            yAxisID: 'yTemp'
+          },
+          {
+            label: 'Humidity (%)',
+            data: humidityData,
+            borderColor: getComputedStyle(document.documentElement).getPropertyValue('--humid').trim(),
+            backgroundColor: 'rgba(31, 120, 180, 0.12)',
+            borderWidth: 2,
+            tension: 0.25,
+            pointRadius: 2,
+            yAxisID: 'yHumidity'
+          }
+        ]
+      };
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+        },
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 20,
+            },
+            grid: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--grid').trim(),
+            },
+          },
+          yTemp: {
+            type: 'linear',
+            position: 'left',
+            title: {
+              display: true,
+              text: 'Temperature (C)',
+            },
+            grid: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--grid').trim(),
+            },
+          },
+          yHumidity: {
+            type: 'linear',
+            position: 'right',
+            title: {
+              display: true,
+              text: 'Humidity (%)',
+            },
+            grid: {
+              drawOnChartArea: false,
+            },
+          },
+        },
+      };
+
+      if (!sensorChart) {
+        sensorChart = new Chart(chartElement, {
+          type: 'line',
+          data: chartData,
+          options: chartOptions,
+        });
+        return;
+      }
+
+      sensorChart.data = chartData;
+      sensorChart.update();
+    }
+
+    async function loadReadings() {
+      statusText.textContent = 'Loading data...';
+      try {
+        const response = await fetch('/api/v1/readings/list/');
+        if (!response.ok) {
+          throw new Error(`Request failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const readings = Array.isArray(payload.readings) ? payload.readings : [];
+
+        if (readings.length === 0) {
+          statusText.textContent = 'No readings available yet.';
+          if (sensorChart) {
+            sensorChart.data.labels = [];
+            sensorChart.data.datasets.forEach((dataset) => {
+              dataset.data = [];
+            });
+            sensorChart.update();
+          }
+          return;
+        }
+
+        createOrUpdateChart(readings);
+        statusText.textContent = `Showing ${readings.length} reading(s). Last update: ${formatTime(new Date().toISOString())}`;
+      } catch (error) {
+        statusText.textContent = `Unable to load readings: ${error.message}`;
+      }
+    }
+
+    refreshBtn.addEventListener('click', loadReadings);
+    loadReadings();
+  </script>
+</body>
+</html>
