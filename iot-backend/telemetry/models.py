@@ -2,7 +2,7 @@ from django.db import models
 
 
 class SensorReading(models.Model):
-    device_id = models.CharField(max_length=64)
+    device_id = models.TextField()
     humidity = models.DecimalField(max_digits=5, decimal_places=2)
     temperature = models.DecimalField(max_digits=5, decimal_places=2)
     sensor_timestamp = models.DateTimeField(null=True, blank=True)
