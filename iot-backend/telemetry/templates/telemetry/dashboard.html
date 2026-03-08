@@ -23,7 +23,7 @@
 
     body {
       margin: 0;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      font-family: "Trebuchet MS", "Lucida Sans Unicode", "Segoe UI", sans-serif;
       color: var(--text);
       background: radial-gradient(circle at top right, #e6f3ff 0%, var(--bg) 48%);
       min-height: 100vh;
@@ -69,6 +69,34 @@
       font-size: 0.9rem;
     }
 
+    .toolbar {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-end;
+      gap: 0.7rem;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 170px;
+    }
+
+    .field label {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .field input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.48rem 0.6rem;
+      font-size: 0.9rem;
+    }
+
     .chart-area {
       padding: 1rem;
       height: 440px;
@@ -89,6 +117,10 @@
       .chart-area {
         height: 360px;
       }
+
+      .field {
+        min-width: 100%;
+      }
     }
   </style>
 </head>
@@ -102,6 +134,19 @@
       <button id="refreshBtn" class="btn" type="button">Refresh</button>
     </section>
 
+    <section class="toolbar">
+      <div class="field">
+        <label for="startDateInput">Start date</label>
+        <input id="startDateInput" type="date" />
+      </div>
+      <div class="field">
+        <label for="endDateInput">End date</label>
+        <input id="endDateInput" type="date" />
+      </div>
+      <button id="applyRangeBtn" class="btn" type="button">Apply range</button>
+      <button id="resetRangeBtn" class="btn" type="button">Last 7 days</button>
+    </section>
+
     <section class="chart-area">
       <canvas id="sensorChart"></canvas>
     </section>
@@ -113,6 +158,10 @@
     const chartElement = document.getElementById('sensorChart');
     const statusText = document.getElementById('statusText');
     const refreshBtn = document.getElementById('refreshBtn');
+    const startDateInput = document.getElementById('startDateInput');
+    const endDateInput = document.getElementById('endDateInput');
+    const applyRangeBtn = document.getElementById('applyRangeBtn');
+    const resetRangeBtn = document.getElementById('resetRangeBtn');
 
     let sensorChart;
 
@@ -219,10 +268,39 @@
       sensorChart.update();
     }
 
+    function getYangonDateString(baseDate = new Date()) {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Yangon',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(baseDate);
+      const year = parts.find((part) => part.type === 'year')?.value;
+      const month = parts.find((part) => part.type === 'month')?.value;
+      const day = parts.find((part) => part.type === 'day')?.value;
+      return `${year}-${month}-${day}`;
+    }
+
+    function setDefaultRange() {
+      const now = new Date();
+      const sevenDaysAgo = new Date(now.getTime() - (6 * 24 * 60 * 60 * 1000));
+      startDateInput.value = getYangonDateString(sevenDaysAgo);
+      endDateInput.value = getYangonDateString(now);
+    }
+
     async function loadReadings() {
       statusText.textContent = 'Loading data...';
       try {
-        const response = await fetch('/api/v1/readings/list/');
+        const params = new URLSearchParams();
+        if (startDateInput.value) {
+          params.append('start_date', startDateInput.value);
+        }
+        if (endDateInput.value) {
+          params.append('end_date', endDateInput.value);
+        }
+
+        const query = params.toString();
+        const response = await fetch(`/api/v1/readings/list/${query ? `?${query}` : ''}`);
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
         }
@@ -231,7 +309,7 @@
         const readings = Array.isArray(payload.readings) ? payload.readings : [];
 
         if (readings.length === 0) {
-          statusText.textContent = 'No readings available yet.';
+          statusText.textContent = 'No readings available in this range.';
           if (sensorChart) {
             sensorChart.data.labels = [];
             sensorChart.data.datasets.forEach((dataset) => {
@@ -243,13 +321,20 @@
         }
 
         createOrUpdateChart(readings);
-        statusText.textContent = `Showing ${readings.length} reading(s). Last update: ${formatTime(new Date().toISOString())}`;
+        statusText.textContent = `Showing ${readings.length} reading(s) from ${startDateInput.value || 'beginning'} to ${endDateInput.value || 'latest'} (Asia/Yangon). Last update: ${formatTime(new Date().toISOString())}`;
       } catch (error) {
         statusText.textContent = `Unable to load readings: ${error.message}`;
       }
     }
 
     refreshBtn.addEventListener('click', loadReadings);
+    applyRangeBtn.addEventListener('click', loadReadings);
+    resetRangeBtn.addEventListener('click', () => {
+      setDefaultRange();
+      loadReadings();
+    });
+
+    setDefaultRange();
     loadReadings();
   </script>
 </body>
