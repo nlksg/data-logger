@@ -41,21 +41,72 @@ def health(request: HttpRequest) -> JsonResponse:
 @csrf_exempt
 @require_http_methods(["GET"])
 def list_readings(request: HttpRequest) -> JsonResponse:
+    start_datetime_param = request.GET.get("start_datetime")
+    end_datetime_param = request.GET.get("end_datetime")
     start_date_param = request.GET.get("start_date")
     end_date_param = request.GET.get("end_date")
 
     try:
-        start_date = date.fromisoformat(start_date_param) if start_date_param else None
-        end_date = date.fromisoformat(end_date_param) if end_date_param else None
+        start_datetime = (
+            datetime.fromisoformat(start_datetime_param)
+            if start_datetime_param
+            else None
+        )
+        end_datetime = (
+            datetime.fromisoformat(end_datetime_param)
+            if end_datetime_param
+            else None
+        )
     except ValueError:
         return JsonResponse(
-            {"error": "start_date and end_date must be in YYYY-MM-DD format"},
+            {
+                "error": (
+                    "start_datetime and end_datetime must be in ISO format "
+                    "(YYYY-MM-DDTHH:MM or YYYY-MM-DDTHH:MM:SS)"
+                )
+            },
             status=400,
         )
 
-    if start_date and end_date and end_date < start_date:
+    if start_datetime and timezone.is_naive(start_datetime):
+        start_datetime = start_datetime.replace(tzinfo=YANGON_TIMEZONE)
+    elif start_datetime:
+        start_datetime = start_datetime.astimezone(YANGON_TIMEZONE)
+
+    if end_datetime and timezone.is_naive(end_datetime):
+        end_datetime = end_datetime.replace(tzinfo=YANGON_TIMEZONE)
+    elif end_datetime:
+        end_datetime = end_datetime.astimezone(YANGON_TIMEZONE)
+
+    if not start_datetime and start_date_param:
+        try:
+            start_date = date.fromisoformat(start_date_param)
+        except ValueError:
+            return JsonResponse(
+                {"error": "start_date must be in YYYY-MM-DD format"},
+                status=400,
+            )
+        start_datetime = timezone.make_aware(
+            datetime.combine(start_date, time.min),
+            YANGON_TIMEZONE,
+        )
+
+    if not end_datetime and end_date_param:
+        try:
+            end_date = date.fromisoformat(end_date_param)
+        except ValueError:
+            return JsonResponse(
+                {"error": "end_date must be in YYYY-MM-DD format"},
+                status=400,
+            )
+        end_datetime = timezone.make_aware(
+            datetime.combine(end_date + timedelta(days=1), time.min),
+            YANGON_TIMEZONE,
+        ) - timedelta(microseconds=1)
+
+    if start_datetime and end_datetime and end_datetime < start_datetime:
         return JsonResponse(
-            {"error": "end_date must be the same as or after start_date"},
+            {"error": "end must be the same as or after start"},
             status=400,
         )
 
@@ -67,19 +118,11 @@ def list_readings(request: HttpRequest) -> JsonResponse:
         )
     )
 
-    if start_date:
-        start_dt = timezone.make_aware(
-            datetime.combine(start_date, time.min),
-            YANGON_TIMEZONE,
-        )
-        readings = readings.filter(effective_timestamp__gte=start_dt)
+    if start_datetime:
+        readings = readings.filter(effective_timestamp__gte=start_datetime)
 
-    if end_date:
-        end_exclusive_dt = timezone.make_aware(
-            datetime.combine(end_date + timedelta(days=1), time.min),
-            YANGON_TIMEZONE,
-        )
-        readings = readings.filter(effective_timestamp__lt=end_exclusive_dt)
+    if end_datetime:
+        readings = readings.filter(effective_timestamp__lte=end_datetime)
 
     readings = readings.order_by("-effective_timestamp", "-id")[:2000]
     data = [
@@ -98,6 +141,8 @@ def list_readings(request: HttpRequest) -> JsonResponse:
         {
             "readings": data,
             "filters": {
+                "start_datetime": start_datetime_param,
+                "end_datetime": end_datetime_param,
                 "start_date": start_date_param,
                 "end_date": end_date_param,
             },

@@ -82,7 +82,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
-      min-width: 170px;
+      min-width: 220px;
     }
 
     .field label {
@@ -136,15 +136,15 @@
 
     <section class="toolbar">
       <div class="field">
-        <label for="startDateInput">Start date</label>
-        <input id="startDateInput" type="date" />
+        <label for="startDateTimeInput">Start date/time</label>
+        <input id="startDateTimeInput" type="datetime-local" step="1" />
       </div>
       <div class="field">
-        <label for="endDateInput">End date</label>
-        <input id="endDateInput" type="date" />
+        <label for="endDateTimeInput">End date/time</label>
+        <input id="endDateTimeInput" type="datetime-local" step="1" />
       </div>
       <button id="applyRangeBtn" class="btn" type="button">Apply range</button>
-      <button id="resetRangeBtn" class="btn" type="button">Last 7 days</button>
+      <button id="resetRangeBtn" class="btn" type="button">Last 24 hours</button>
     </section>
 
     <section class="chart-area">
@@ -158,8 +158,8 @@
     const chartElement = document.getElementById('sensorChart');
     const statusText = document.getElementById('statusText');
     const refreshBtn = document.getElementById('refreshBtn');
-    const startDateInput = document.getElementById('startDateInput');
-    const endDateInput = document.getElementById('endDateInput');
+    const startDateTimeInput = document.getElementById('startDateTimeInput');
+    const endDateTimeInput = document.getElementById('endDateTimeInput');
     const applyRangeBtn = document.getElementById('applyRangeBtn');
     const resetRangeBtn = document.getElementById('resetRangeBtn');
 
@@ -268,35 +268,44 @@
       sensorChart.update();
     }
 
-    function getYangonDateString(baseDate = new Date()) {
+    function getYangonDateTimeLocalString(baseDate = new Date()) {
       const parts = new Intl.DateTimeFormat('en-US', {
         timeZone: 'Asia/Yangon',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
       }).formatToParts(baseDate);
+
       const year = parts.find((part) => part.type === 'year')?.value;
       const month = parts.find((part) => part.type === 'month')?.value;
       const day = parts.find((part) => part.type === 'day')?.value;
-      return `${year}-${month}-${day}`;
+      const hour = parts.find((part) => part.type === 'hour')?.value;
+      const minute = parts.find((part) => part.type === 'minute')?.value;
+      const second = parts.find((part) => part.type === 'second')?.value;
+
+      return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
     }
 
     function setDefaultRange() {
       const now = new Date();
-      const sevenDaysAgo = new Date(now.getTime() - (6 * 24 * 60 * 60 * 1000));
-      startDateInput.value = getYangonDateString(sevenDaysAgo);
-      endDateInput.value = getYangonDateString(now);
+      const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+      startDateTimeInput.value = getYangonDateTimeLocalString(dayAgo);
+      endDateTimeInput.value = getYangonDateTimeLocalString(now);
     }
 
     async function loadReadings() {
       statusText.textContent = 'Loading data...';
       try {
         const params = new URLSearchParams();
-        if (startDateInput.value) {
-          params.append('start_date', startDateInput.value);
+        if (startDateTimeInput.value) {
+          params.append('start_datetime', startDateTimeInput.value);
         }
-        if (endDateInput.value) {
-          params.append('end_date', endDateInput.value);
+        if (endDateTimeInput.value) {
+          params.append('end_datetime', endDateTimeInput.value);
         }
 
         const query = params.toString();
@@ -321,7 +330,7 @@
         }
 
         createOrUpdateChart(readings);
-        statusText.textContent = `Showing ${readings.length} reading(s) from ${startDateInput.value || 'beginning'} to ${endDateInput.value || 'latest'} (Asia/Yangon). Last update: ${formatTime(new Date().toISOString())}`;
+        statusText.textContent = `Showing ${readings.length} reading(s) from ${startDateTimeInput.value || 'beginning'} to ${endDateTimeInput.value || 'latest'} (Asia/Yangon). Last update: ${formatTime(new Date().toISOString())}`;
       } catch (error) {
         statusText.textContent = `Unable to load readings: ${error.message}`;
       }
